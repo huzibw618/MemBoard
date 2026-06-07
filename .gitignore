@@ -3,8 +3,15 @@ __pycache__/
 *.py[oc]
 build/
 dist/
+memboard_*/
 wheels/
 *.egg-info
 
 # Virtual environments
 .venv
+
+# Runtime logs
+log/
+
+# Local notes
+instructions.md
