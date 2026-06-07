@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MemBoard
+Comment=Guitar fretboard memorization trainer
+Exec=/opt/memboard/MemBoard
+Icon=audio-x-generic
+Categories=Game;Music;Education;
+Terminal=false
+StartupNotify=false

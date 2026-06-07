@@ -4,8 +4,17 @@ import sys
 from datetime import datetime
 from quiz import QuizState
 
-# When bundled with PyInstaller, store logs next to the executable, not in the temp extraction dir
-_BASE_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
+# Dev: logs sit next to the source files.
+# Windows frozen: logs next to the exe (user-writable extracted folder).
+# Linux frozen: use XDG user data dir so a system install in /opt stays read-only.
+if getattr(sys, 'frozen', False):
+    if sys.platform == 'win32':
+        _BASE_DIR = os.path.dirname(sys.executable)
+    else:
+        _xdg = os.environ.get('XDG_DATA_HOME', os.path.join(os.path.expanduser('~'), '.local', 'share'))
+        _BASE_DIR = os.path.join(_xdg, 'memboard')
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 _FOLDER_FOR_STRING = {1: 'E', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'e'}
 _ALL_STRINGS = [1, 2, 3, 4, 5, 6]

@@ -17,6 +17,7 @@ jobs:
             artifact_name: MemBoard-windows.zip
           - os: ubuntu-latest
             artifact_name: MemBoard-linux.tar.gz
+            deb_artifact: true
 
     runs-on: ${{ matrix.os }}
 
@@ -46,7 +47,19 @@ jobs:
         if: runner.os == 'Linux'
         run: tar -czf MemBoard-linux.tar.gz -C dist MemBoard
 
+      - name: Build deb (Linux)
+        if: matrix.deb_artifact
+        run: bash build_deb.sh
+
+      - name: Rename deb for upload (Linux)
+        if: matrix.deb_artifact
+        run: |
+          VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          mv "memboard_${VERSION}_amd64.deb" MemBoard-linux.deb
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_name }}
+          files: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.deb_artifact && 'MemBoard-linux.deb' || '' }}
