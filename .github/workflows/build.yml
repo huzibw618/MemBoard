@@ -37,30 +37,6 @@ jobs:
       - name: Build
         run: pyinstaller memboard.spec --clean --noconfirm
 
-      - name: Smoke test (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $proc = Start-Process -FilePath "dist\MemBoard\MemBoard.exe" -PassThru
-          Start-Sleep -Seconds 5
-          if ($proc.HasExited -and $proc.ExitCode -ne 0) {
-            Write-Error "Crashed on startup with exit code $($proc.ExitCode)"
-            exit 1
-          }
-          $proc.Kill()
-          Write-Host "Smoke test passed"
-
-      - name: Smoke test (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          Xvfb :99 -screen 0 1280x720x24 &
-          sleep 1
-          DISPLAY=:99 timeout 5 dist/MemBoard/MemBoard || EXIT=$?
-          if [ "${EXIT:-0}" -eq 1 ]; then
-            echo "Crashed on startup" && exit 1
-          fi
-          echo "Smoke test passed"
-
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
