@@ -33,7 +33,7 @@ jobs:
         run: sudo apt-get install -y libportaudio2
 
       - name: Install dependencies
-        run: pip install librosa numpy sounddevice pygame pyinstaller==6.6.0
+        run: pip install librosa numpy sounddevice pygame pyinstaller==6.6.0 pillow
 
       - name: Build
         run: pyinstaller memboard.spec --clean --noconfirm

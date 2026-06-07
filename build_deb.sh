@@ -15,9 +15,11 @@ rm -rf "$PKG"
 mkdir -p "$PKG/DEBIAN"
 mkdir -p "$PKG/opt/memboard"
 mkdir -p "$PKG/usr/share/applications"
+mkdir -p "$PKG/usr/share/pixmaps"
 
 cp -r "$DIST/." "$PKG/opt/memboard/"
 cp memboard.desktop "$PKG/usr/share/applications/memboard.desktop"
+cp assets/icon.png "$PKG/usr/share/pixmaps/memboard.png"
 
 INSTALLED_KB=$(du -sk "$PKG/opt" | cut -f1)
 
