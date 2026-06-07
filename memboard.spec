@@ -1,28 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-block_cipher = None
+from PyInstaller.utils.hooks import collect_all
+
+numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[
+    binaries=numpy_binaries,
+    datas=numpy_datas,
+    hiddenimports=numpy_hiddenimports + [
         'sounddevice',
         '_sounddevice_data',
         'cffi',
         '_cffi_backend',
-        'numpy',
-        'numpy.core._multiarray_umath',
     ],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
-    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -34,7 +33,6 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
-    icon=None,
 )
 
 coll = COLLECT(
