@@ -8,7 +8,10 @@ a = Analysis(
     ['src/main.py'],
     pathex=['src'],
     binaries=numpy_binaries,
-    datas=numpy_datas,
+    datas=numpy_datas + [
+        ('assets/DejaVuSans.ttf', 'assets'),
+        ('assets/DejaVuSans-Bold.ttf', 'assets'),
+    ],
     hiddenimports=numpy_hiddenimports + [
         'sounddevice',
         '_sounddevice_data',

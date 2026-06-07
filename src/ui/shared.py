@@ -1,8 +1,18 @@
 import math
+import os
+import sys
 import pygame
 from audio import SILENCE_RMS
 
 W, H = 900, 700
+
+
+def _font_path(filename: str) -> str:
+    """Locate a bundled font, both in dev and inside a PyInstaller bundle."""
+    base = getattr(sys, '_MEIPASS', None)
+    if base is None:  # running from source: src/ui/shared.py -> project root
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, 'assets', filename)
 
 BG     = (15,  15,  25)
 DIM    = (80,  80, 100)
@@ -14,13 +24,22 @@ YELLOW = (240, 200,  50)
 
 class Fonts:
     def __init__(self):
-        self.title  = pygame.font.SysFont('dejavusans', 52, bold=True)
-        self.stats  = pygame.font.SysFont('dejavusans', 24)
-        self.note   = pygame.font.SysFont('dejavusans', 210, bold=True)
-        self.timer  = pygame.font.SysFont('dejavusans', 38)
-        self.result = pygame.font.SysFont('dejavusans', 42, bold=True)
-        self.menu   = pygame.font.SysFont('dejavusans', 22)
-        self.hint   = pygame.font.SysFont('dejavusans', 18)
+        self.title  = self._load(52, bold=True)
+        self.stats  = self._load(24)
+        self.note   = self._load(210, bold=True)
+        self.timer  = self._load(38)
+        self.result = self._load(42, bold=True)
+        self.menu   = self._load(22)
+        self.hint   = self._load(18)
+
+    @staticmethod
+    def _load(size: int, bold: bool = False) -> pygame.font.Font:
+        # Bundle DejaVu Sans so symbol glyphs (✓ ✗ ▶ ↺ ♪ …) render on every platform;
+        # Windows lacks DejaVu, so SysFont would silently fall back and show tofu boxes.
+        path = _font_path('DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf')
+        if os.path.exists(path):
+            return pygame.font.Font(path, size)
+        return pygame.font.SysFont('dejavusans', size, bold=bold)
 
 
 def draw_back_button(screen: pygame.Surface, fonts: Fonts) -> pygame.Rect:
