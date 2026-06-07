@@ -46,4 +46,5 @@ class RoundsView:
         self.clock.tick(60)
 
     def poll(self) -> tuple[bool, bool, int, bool]:
-        return poll_menu(self._back_btn)
+        running, confirmed, delta, back, _tuner = poll_menu(self._back_btn)
+        return running, confirmed, delta, back

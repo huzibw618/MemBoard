@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from audio import freq_to_note, _detect_frequency, SAMPLE_RATE, FFT_SIZE
+from audio import freq_to_note, PitchStabilizer, _detect_frequency, SAMPLE_RATE, FFT_SIZE
 
 
 # ------------------------------------------------------------------ freq_to_note
@@ -37,6 +37,74 @@ def test_freq_to_note_octave_boundary_down():
     note, octave = freq_to_note(116.54)
     assert note == 'A#'
     assert octave == 2
+
+
+# ------------------------------------------------------------------ PitchStabilizer
+
+def _feed(stab: PitchStabilizer, freq, n: int):
+    for _ in range(n):
+        stab.update(freq)
+
+
+def test_stabilizer_no_reading_before_min_samples():
+    stab = PitchStabilizer(min_samples=4)
+    for _ in range(3):
+        stab.update(440.0)
+        assert stab.reading is None
+    stab.update(440.0)
+    assert stab.reading is not None
+
+
+def test_stabilizer_steady_note():
+    stab = PitchStabilizer()
+    _feed(stab, 440.0, 10)
+    note, octave, cents = stab.reading
+    assert (note, octave) == ('A', 4)
+    assert abs(cents) < 1.0
+
+
+def test_stabilizer_reports_sharp_and_flat():
+    sharp = PitchStabilizer()
+    _feed(sharp, 445.0, 10)
+    assert sharp.reading[0] == 'A' and sharp.reading[2] > 0
+
+    flat = PitchStabilizer()
+    _feed(flat, 435.0, 10)
+    assert flat.reading[0] == 'A' and flat.reading[2] < 0
+
+
+def test_stabilizer_rejects_single_octave_glitch():
+    # One spurious octave reading in a steady note must not change the displayed note.
+    stab = PitchStabilizer()
+    _feed(stab, 440.0, 8)
+    stab.update(880.0)          # glitch
+    _feed(stab, 440.0, 4)
+    assert stab.reading[:2] == ('A', 4)
+
+
+def test_stabilizer_switches_to_genuinely_new_note():
+    # A sustained move to B4 should eventually relabel.
+    stab = PitchStabilizer()
+    _feed(stab, 440.0, 10)
+    assert stab.reading[:2] == ('A', 4)
+    _feed(stab, 493.88, 12)     # B4 held
+    assert stab.reading[:2] == ('B', 4)
+
+
+def test_stabilizer_resets_on_sustained_silence():
+    stab = PitchStabilizer(silence_tolerance=4)
+    _feed(stab, 440.0, 10)
+    assert stab.reading is not None
+    _feed(stab, None, 4)
+    assert stab.reading is None
+
+
+def test_stabilizer_tolerates_brief_dropout():
+    stab = PitchStabilizer(silence_tolerance=4)
+    _feed(stab, 440.0, 10)
+    stab.update(None)           # one dropped block
+    stab.update(None)
+    assert stab.reading is not None  # not enough silence to reset
 
 
 # ------------------------------------------------------------------ _detect_frequency

@@ -34,4 +34,5 @@ class DeviceView:
         self.clock.tick(60)
 
     def poll(self) -> tuple[bool, bool, int, bool]:
-        return poll_menu()
+        running, confirmed, delta, back, _tuner = poll_menu()
+        return running, confirmed, delta, back

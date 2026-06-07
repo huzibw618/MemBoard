@@ -1,6 +1,6 @@
 @echo off
 echo Installing build dependencies...
-pip install pyinstaller
+pip install ".[build]" pillow
 
 echo Building MemBoard...
 pyinstaller memboard.spec --clean --noconfirm

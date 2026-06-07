@@ -1,5 +1,6 @@
 import queue
 import threading
+from collections import deque
 import numpy as np
 import sounddevice as sd
 
@@ -27,6 +28,86 @@ def freq_to_note(freq: float) -> tuple[str, int]:
     note = NOTE_NAMES[nearest % 12]
     octave = 4 + (nearest + 9) // 12
     return note, octave
+
+
+def _index_to_note(idx: int) -> tuple[str, int]:
+    """Semitone index relative to A4 -> (note, octave)."""
+    return NOTE_NAMES[idx % 12], 4 + (idx + 9) // 12
+
+
+class PitchStabilizer:
+    """Turns a noisy stream of per-block detections into a steady tuner reading.
+
+    - A median over the recent window rejects single-frame outliers (e.g. octave jumps).
+    - The displayed note only changes once the pitch moves clearly (``switch_cents``)
+      into a neighbour and stays there for ``confirm`` readings (hysteresis), so a
+      sustained note never flickers between adjacent names.
+    - The cents needle is an EMA of the median, reported relative to the held note.
+    """
+
+    def __init__(self, window: int = 10, min_samples: int = 4,
+                 switch_cents: float = 60.0, confirm: int = 2,
+                 ema: float = 0.25, silence_tolerance: int = 4):
+        self._window = window
+        self._min = min_samples
+        self._switch = switch_cents
+        self._confirm = confirm
+        self._ema = ema
+        self._silence_tol = silence_tolerance
+        self.reset()
+
+    def reset(self):
+        self._history: deque = deque(maxlen=self._window)
+        self._idx: int | None = None      # held note, semitones from A4
+        self._display: float | None = None  # EMA frequency
+        self._cand: int | None = None
+        self._cand_count = 0
+        self._silence = 0
+
+    def update(self, freq: float | None):
+        """Feed one detection in Hz, or None for silence/no-detection."""
+        if not freq:
+            self._silence += 1
+            if self._silence >= self._silence_tol:
+                self.reset()
+            return
+        self._silence = 0
+        self._history.append(freq)
+        if len(self._history) < self._min:
+            return
+
+        med = float(np.median(self._history))
+        self._display = med if self._display is None else (1 - self._ema) * self._display + self._ema * med
+
+        semis = 12 * np.log2(med / 440.0)
+        if self._idx is None:
+            self._idx = int(round(semis))
+            return
+
+        if abs(semis - self._idx) * 100.0 > self._switch:
+            cand = int(round(semis))
+            self._cand_count = self._cand_count + 1 if cand == self._cand else 1
+            self._cand = cand
+            if self._cand_count >= self._confirm:
+                self._idx = cand
+                self._cand = None
+                self._cand_count = 0
+        else:
+            self._cand = None
+            self._cand_count = 0
+
+    @property
+    def freq(self) -> float | None:
+        return self._display
+
+    @property
+    def reading(self) -> tuple[str, int, float] | None:
+        """Stable (note, octave, cents) or None when there's no confident pitch."""
+        if self._idx is None or self._display is None:
+            return None
+        note, octave = _index_to_note(self._idx)
+        cents = (12 * np.log2(self._display / 440.0) - self._idx) * 100.0
+        return note, octave, cents
 
 
 def _detect_frequency(audio_block: np.ndarray) -> float | None:

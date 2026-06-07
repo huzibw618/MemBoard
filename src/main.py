@@ -33,20 +33,47 @@ def run_device_menu(renderer: Renderer) -> int | None:
         renderer.draw_menu(devices, selected)
 
 
-def run_string_menu(renderer: Renderer) -> list[int] | str | None:
-    labels = [label for label, _ in STRING_OPTIONS]
-    selected = 0
-    renderer.draw_string_menu(labels, selected)
+def run_tuner(renderer: Renderer, stream: AudioStream) -> str | None:
+    """Live tuner screen, reusing an already-open audio stream.
+
+    Returns 'back' when dismissed, or None to quit the app.
+    """
     while True:
-        running, confirmed, delta, back = renderer.poll_string_event()
+        running, back = renderer.poll_tuner_event()
         if not running:
             return None
         if back:
             return 'back'
-        selected = (selected + delta) % len(STRING_OPTIONS)
-        if confirmed:
-            return STRING_OPTIONS[selected][1]
-        renderer.draw_string_menu(labels, selected)
+        stream.gain = renderer.gain
+        try:
+            renderer.update_tuner(stream.get_freq())
+        except queue.Empty:
+            pass
+        renderer.draw_tuner(stream.rms)
+
+
+def run_string_menu(renderer: Renderer, device_index: int) -> list[int] | str | None:
+    audio_module.DEVICE = device_index
+    labels = [label for label, _ in STRING_OPTIONS]
+    selected = 0
+    with AudioStream() as stream:
+        renderer.draw_string_menu(labels, selected, stream.rms)
+        while True:
+            stream.gain = renderer.gain
+            running, confirmed, delta, back, tuner = renderer.poll_string_event()
+            if not running:
+                return None
+            if back:
+                return 'back'
+            if tuner:
+                if run_tuner(renderer, stream) is None:
+                    return None
+                renderer.draw_string_menu(labels, selected, stream.rms)
+                continue
+            selected = (selected + delta) % len(STRING_OPTIONS)
+            if confirmed:
+                return STRING_OPTIONS[selected][1]
+            renderer.draw_string_menu(labels, selected, stream.rms)
 
 
 def run_rounds_menu(renderer: Renderer, allowed_strings: list[int]) -> int | str | None:
@@ -90,8 +117,11 @@ def run_quiz(renderer: Renderer, device_index: int,
                     return 'back'
                 continue
 
-            if not renderer.poll_events():
+            running, back = renderer.poll_events()
+            if not running:
                 return None
+            if back:
+                return 'back'
             stream.gain = renderer.gain
 
             try:
@@ -124,7 +154,7 @@ def main():
             state = 'strings'
 
         elif state == 'strings':
-            result = run_string_menu(renderer)
+            result = run_string_menu(renderer, device_index)
             if result is None:
                 break
             if result == 'back':
