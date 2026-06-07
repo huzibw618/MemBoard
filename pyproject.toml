@@ -16,3 +16,6 @@ build = ["pyinstaller>=6.0"]
 
 [dependency-groups]
 dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

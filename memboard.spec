@@ -5,8 +5,8 @@ from PyInstaller.utils.hooks import collect_all
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 
 a = Analysis(
-    ['main.py'],
-    pathex=[],
+    ['src/main.py'],
+    pathex=['src'],
     binaries=numpy_binaries,
     datas=numpy_datas,
     hiddenimports=numpy_hiddenimports + [

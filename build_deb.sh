@@ -7,7 +7,7 @@ DIST="dist/MemBoard"
 
 if [ ! -d "$DIST" ]; then
     echo "Building PyInstaller bundle..."
-    pyinstaller memboard.spec --clean --noconfirm
+    uv run --extra build pyinstaller memboard.spec --clean --noconfirm
 fi
 
 echo "Assembling deb: $PKG..."

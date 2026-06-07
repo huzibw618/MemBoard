@@ -14,7 +14,7 @@ if getattr(sys, 'frozen', False):
         _xdg = os.environ.get('XDG_DATA_HOME', os.path.join(os.path.expanduser('~'), '.local', 'share'))
         _BASE_DIR = os.path.join(_xdg, 'memboard')
 else:
-    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _FOLDER_FOR_STRING = {1: 'E', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'e'}
 _ALL_STRINGS = [1, 2, 3, 4, 5, 6]
