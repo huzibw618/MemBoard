@@ -15,8 +15,8 @@ STRING_NOTES = {
     6: [('F',2),('F#',2),('G',2),('G#',2),('A',2),('A#',2),('B',2),('C',3),('C#',3),('D',3),('D#',3)],
 }
 
-STRING_NAMES = {1: 'E', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'e'}
-OPEN_NOTES   = {1: 'E', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'e'}
+STRING_NAMES = {1: 'e', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'E'}
+OPEN_NOTES   = {1: 'e', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'E'}
 
 
 def _new_challenge(allowed: list[int], last: tuple | None = None) -> tuple[int, str, int]:

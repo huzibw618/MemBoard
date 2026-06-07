@@ -3,7 +3,7 @@ import threading
 import numpy as np
 import sounddevice as sd
 
-SAMPLE_RATE = 44100
+SAMPLE_RATE = 48000
 BLOCK_SIZE  = 2048
 FFT_SIZE    = 16384
 SILENCE_RMS = 0.008
@@ -56,6 +56,8 @@ class AudioStream:
         self._lock = threading.Lock()
         self._queue: queue.Queue = queue.Queue(maxsize=1)
         self._stream = None
+        self.rms: float = 0.0
+        self.gain: float = 1.0
 
     def __enter__(self):
         self._stream = sd.InputStream(
@@ -73,11 +75,12 @@ class AudioStream:
         self._stream.__exit__(*args)
 
     def _callback(self, indata, frames, time, status):
-        chunk = indata[:, 0]
+        chunk = indata[:, 0] * self.gain
         with self._lock:
             self._ring = np.roll(self._ring, -len(chunk))
             self._ring[-len(chunk):] = chunk
         rms = float(np.sqrt(np.mean(chunk ** 2)))
+        self.rms = rms
         if rms > SILENCE_RMS:
             with self._lock:
                 window = self._ring.copy()
