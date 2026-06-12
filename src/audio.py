@@ -39,15 +39,17 @@ class PitchStabilizer:
     """Turns a noisy stream of per-block detections into a steady tuner reading.
 
     - A median over the recent window rejects single-frame outliers (e.g. octave jumps).
-    - The displayed note only changes once the pitch moves clearly (``switch_cents``)
-      into a neighbour and stays there for ``confirm`` readings (hysteresis), so a
-      sustained note never flickers between adjacent names.
-    - The cents needle is an EMA of the median, reported relative to the held note.
+    - The displayed note changes once the pitch crosses the ~50-cent boundary into
+      a neighbour and stays there for ``confirm`` readings (a little hysteresis), so
+      a sustained note never flickers yet the label still matches the nearest note
+      like any other tuner.
+    - Both the note and the cents needle are derived from one lightly smoothed
+      frequency, so the label and the needle never disagree.
     """
 
-    def __init__(self, window: int = 10, min_samples: int = 4,
-                 switch_cents: float = 60.0, confirm: int = 2,
-                 ema: float = 0.25, silence_tolerance: int = 4):
+    def __init__(self, window: int = 5, min_samples: int = 3,
+                 switch_cents: float = 50.0, confirm: int = 2,
+                 ema: float = 0.4, silence_tolerance: int = 4):
         self._window = window
         self._min = min_samples
         self._switch = switch_cents
@@ -79,7 +81,7 @@ class PitchStabilizer:
         med = float(np.median(self._history))
         self._display = med if self._display is None else (1 - self._ema) * self._display + self._ema * med
 
-        semis = 12 * np.log2(med / 440.0)
+        semis = 12 * np.log2(self._display / 440.0)
         if self._idx is None:
             self._idx = int(round(semis))
             return
@@ -110,25 +112,54 @@ class PitchStabilizer:
         return note, octave, cents
 
 
+def _parabolic_peak(mags: np.ndarray, i: int) -> float:
+    """Sub-bin offset of the peak at bin ``i`` via parabolic interpolation.
+
+    The raw FFT bin width (~3 Hz here) is far too coarse for cents-accurate
+    tuning, so we fit a parabola to the peak and its two neighbours to recover
+    a fractional-bin position. Returns an offset in ``(-0.5, 0.5)``.
+    """
+    if i <= 0 or i >= len(mags) - 1:
+        return 0.0
+    a, b, c = mags[i - 1], mags[i], mags[i + 1]
+    denom = a - 2.0 * b + c
+    if denom == 0:
+        return 0.0
+    return max(-0.5, min(0.5, 0.5 * (a - c) / denom))
+
+
 def _detect_frequency(audio_block: np.ndarray) -> float | None:
     windowed = audio_block * np.hanning(len(audio_block))
     fft_magnitudes = np.abs(np.fft.rfft(windowed))
     freqs = np.fft.rfftfreq(len(windowed), 1 / SAMPLE_RATE)
 
+    # Harmonic product spectrum to favour the fundamental over its harmonics.
+    # Deliberately few harmonics: with too many, a subharmonic (whose partials
+    # all line up) can out-score the true fundamental whose upper harmonics are
+    # weak, making low notes read an octave flat.
     hps = fft_magnitudes.copy()
-    for h in range(2, 6):
+    for h in range(2, 4):
         downsampled = fft_magnitudes[::h]
         hps[:len(downsampled)] *= downsampled
 
-    lo = np.searchsorted(freqs, 50)
-    hi = np.searchsorted(freqs, 1400)
-    hps_r, freqs_r = hps[lo:hi], freqs[lo:hi]
+    lo = int(np.searchsorted(freqs, 50))
+    hi = int(np.searchsorted(freqs, 1400))
+    if hi <= lo:
+        return None
 
-    threshold = np.max(hps_r) * 0.3
-    for i in range(1, len(hps_r) - 1):
-        if hps_r[i] > hps_r[i - 1] and hps_r[i] > hps_r[i + 1] and hps_r[i] >= threshold:
-            return float(freqs_r[i])
-    return None
+    peak = lo + int(np.argmax(hps[lo:hi]))
+    if hps[peak] <= 0:
+        return None
+
+    # Octave guard: HPS can still latch onto a subharmonic, whose bin carries
+    # almost no real spectral energy. If the bin an octave up is far stronger in
+    # the raw spectrum, that is the true fundamental.
+    upper = peak * 2
+    if upper < len(fft_magnitudes) and fft_magnitudes[upper] > fft_magnitudes[peak] * 4.0:
+        peak = upper
+
+    refined = peak + _parabolic_peak(fft_magnitudes, peak)
+    return float(refined * SAMPLE_RATE / len(windowed))
 
 
 class AudioStream:
