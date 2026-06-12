@@ -83,12 +83,12 @@ def draw_input_bar(screen: pygame.Surface, fonts: Fonts, rms: float):
     if filled_w > 0:
         pygame.draw.rect(screen, color, (x, y, filled_w, bar_h), border_radius=4)
     label = fonts.hint.render('INPUT', True, DIM)
-    screen.blit(label, (x - label.get_width() - 8, y - 2))
+    screen.blit(label, label.get_rect(midright=(x - 8, y + bar_h // 2)))
 
 
 class GainKnob:
     """Bottom-right gain dial (×1.0–×8.0). Owns its value and its drag/wheel interaction."""
-    CX, CY, R = W - 46, H - 62, 24
+    CX, CY, R = W - 64, H - 62, 24
     MIN, MAX = 1.0, 8.0
 
     def __init__(self):
@@ -119,18 +119,31 @@ class GainKnob:
             return True
         return False
 
+    SS = 4  # supersample factor: pygame's draw.arc has no anti-aliasing, so we
+            # render the dial big and smoothscale it down to get clean edges.
+
     def draw(self, screen: pygame.Surface, fonts: Fonts):
         cx, cy, r = self.CX, self.CY, self.R
+        ss = self.SS
         t = (self.gain - self.MIN) / (self.MAX - self.MIN)
         angle = math.radians(225 - t * 270)
-        rect = pygame.Rect(cx - r, cy - r, r * 2, r * 2)
-        pygame.draw.arc(screen, (50, 50, 65), rect, math.radians(-45), math.radians(225), 3)
+
+        pad = 3
+        box = (r + pad) * 2
+        surf = pygame.Surface((box * ss, box * ss), pygame.SRCALPHA)
+        c = (r + pad) * ss  # local centre on the supersampled surface
+        rect = pygame.Rect(c - r * ss, c - r * ss, r * ss * 2, r * ss * 2)
+        pygame.draw.arc(surf, (50, 50, 65), rect, math.radians(-45), math.radians(225), 3 * ss)
         if t > 0:
-            pygame.draw.arc(screen, YELLOW, rect, angle, math.radians(225), 3)
-        pygame.draw.circle(screen, (45, 45, 60), (cx, cy), r - 5)
-        ix = cx + int((r - 8) * math.cos(angle))
-        iy = cy - int((r - 8) * math.sin(angle))
-        pygame.draw.line(screen, YELLOW, (cx, cy), (ix, iy), 2)
+            pygame.draw.arc(surf, YELLOW, rect, angle, math.radians(225), 3 * ss)
+        pygame.draw.circle(surf, (45, 45, 60), (c, c), (r - 5) * ss)
+        ix = c + int((r - 8) * ss * math.cos(angle))
+        iy = c - int((r - 8) * ss * math.sin(angle))
+        pygame.draw.line(surf, YELLOW, (c, c), (ix, iy), 2 * ss)
+
+        surf = pygame.transform.smoothscale(surf, (box, box))
+        screen.blit(surf, (cx - (r + pad), cy - (r + pad)))
+
         label = fonts.hint.render(f'GAIN  ×{self.gain:.1f}', True, DIM)
         screen.blit(label, label.get_rect(center=(cx, cy + r + 10)))
 
