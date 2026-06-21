@@ -40,7 +40,7 @@ class RoundsView:
 
         self._back_btn = draw_back_button(self.screen, self.fonts)
         hint = self.fonts.hint.render('↑ ↓:  navigate     Enter:  confirm', True, DIM)
-        self.screen.blit(hint, hint.get_rect(center=(W // 2 + 60, H - 30)))
+        self.screen.blit(hint, hint.get_rect(center=(W // 2, H - 30)))
 
         pygame.display.flip()
         self.clock.tick(60)

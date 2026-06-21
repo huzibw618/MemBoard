@@ -21,9 +21,12 @@ _ALL_STRINGS = [1, 2, 3, 4, 5, 6]
 
 
 def _session_folder(allowed_strings: list[int]) -> str:
-    if sorted(allowed_strings) == _ALL_STRINGS:
+    s = sorted(allowed_strings)
+    if s == _ALL_STRINGS:
         return 'all'
-    return _FOLDER_FOR_STRING[allowed_strings[0]]
+    if len(s) == 1:
+        return _FOLDER_FOR_STRING[s[0]]
+    return '-'.join(str(i) for i in s)
 
 
 def get_best_scores(allowed_strings: list[int], round_options: list[int]) -> dict[int, float | None]:

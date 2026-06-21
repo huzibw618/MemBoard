@@ -15,3 +15,10 @@ log/
 
 # Local notes
 instructions.md
+
+# Graphify knowledge graph outputs
+graphify-out/
+
+# Claude Code
+.claude/
+CLAUDE.md

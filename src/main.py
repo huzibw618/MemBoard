@@ -8,14 +8,9 @@ from logger import log_session, get_best_scores
 
 ROUND_OPTIONS = [5, 25, 50, 75, 100]
 
-STRING_OPTIONS = [
-    ('All Strings',  [1, 2, 3, 4, 5, 6]),
-    ('e  (1)',        [1]),
-    ('B  (2)',        [2]),
-    ('G  (3)',        [3]),
-    ('D  (4)',        [4]),
-    ('A  (5)',        [5]),
-    ('E  (6)',        [6]),
+STRING_ROWS = [
+    ('e  (1)', 1), ('B  (2)', 2), ('G  (3)', 3),
+    ('D  (4)', 4), ('A  (5)', 5), ('E  (6)', 6),
 ]
 
 
@@ -54,13 +49,15 @@ def run_tuner(renderer: Renderer, stream: AudioStream) -> str | None:
 
 def run_string_menu(renderer: Renderer, device_index: int) -> list[int] | str | None:
     audio_module.DEVICE = device_index
-    labels = [label for label, _ in STRING_OPTIONS]
-    selected = 0
+    selected: set[int] = {1, 2, 3, 4, 5, 6}
+    cursor = 0
+    rows = ['All Strings'] + [label for label, _ in STRING_ROWS]
     with AudioStream() as stream:
-        renderer.draw_string_menu(labels, selected, stream.rms)
+        checked = [len(selected) == 6] + [idx in selected for _, idx in STRING_ROWS]
+        renderer.draw_string_menu(rows, checked, cursor, bool(selected), stream.rms)
         while True:
             stream.gain = renderer.gain
-            running, confirmed, delta, back, tuner = renderer.poll_string_event()
+            running, confirmed, delta, toggle, back, tuner = renderer.poll_string_event()
             if not running:
                 return None
             if back:
@@ -68,18 +65,33 @@ def run_string_menu(renderer: Renderer, device_index: int) -> list[int] | str | 
             if tuner:
                 if run_tuner(renderer, stream) is None:
                     return None
-                renderer.draw_string_menu(labels, selected, stream.rms)
+                checked = [len(selected) == 6] + [idx in selected for _, idx in STRING_ROWS]
+                renderer.draw_string_menu(rows, checked, cursor, bool(selected), stream.rms)
                 continue
-            selected = (selected + delta) % len(STRING_OPTIONS)
-            if confirmed:
-                return STRING_OPTIONS[selected][1]
-            renderer.draw_string_menu(labels, selected, stream.rms)
+            cursor = (cursor + delta) % len(rows)
+            if toggle:
+                if cursor == 0:
+                    if len(selected) == 6:
+                        selected.clear()
+                    else:
+                        selected = {1, 2, 3, 4, 5, 6}
+                else:
+                    idx = STRING_ROWS[cursor - 1][1]
+                    if idx in selected:
+                        selected.discard(idx)
+                    else:
+                        selected.add(idx)
+            if confirmed and selected:
+                return sorted(selected)
+            checked = [len(selected) == 6] + [idx in selected for _, idx in STRING_ROWS]
+            renderer.draw_string_menu(rows, checked, cursor, bool(selected), stream.rms)
 
 
 def run_rounds_menu(renderer: Renderer, allowed_strings: list[int]) -> int | str | None:
     selected = 0
     best_scores = get_best_scores(allowed_strings, ROUND_OPTIONS)
     renderer.draw_rounds_menu(ROUND_OPTIONS, selected, best_scores)
+    renderer.flush_events()
     while True:
         running, confirmed, delta, back = renderer.poll_rounds_event()
         if not running:
@@ -92,10 +104,23 @@ def run_rounds_menu(renderer: Renderer, allowed_strings: list[int]) -> int | str
         renderer.draw_rounds_menu(ROUND_OPTIONS, selected, best_scores)
 
 
+def run_countdown(renderer: Renderer) -> bool:
+    """Counts down 5…1. Returns False if the user quits during countdown."""
+    for n in range(5, 0, -1):
+        start = time.time()
+        while time.time() - start < 1.0:
+            renderer.draw_countdown(n)
+            if not renderer.poll_countdown():
+                return False
+    return True
+
+
 def run_quiz(renderer: Renderer, device_index: int,
              allowed_strings: list[int], max_rounds: int) -> str | None:
     """Returns 'rerun', 'back', or None (quit)."""
     audio_module.DEVICE = device_index
+    if not run_countdown(renderer):
+        return None
     quiz = QuizState.start(max_rounds=max_rounds, allowed_strings=allowed_strings)
     logged = False
 
